@@ -1,0 +1,365 @@
+# SmartMRI Planner - Technical Documentation
+
+## Architecture Overview
+
+SmartMRI Planner is built with a modular architecture consisting of four main components:
+
+1. **PDF Processor**: Extracts text from PDF research papers and URLs
+2. **NLP Analyzer**: Processes patient information and research findings using LangChain and OpenAI
+3. **Protocol Recommender**: Generates personalized MRI protocol recommendations
+4. **Integration Layer**: Coordinates workflow between components
+5. **Web Interface**: Flask-based user interface for interacting with the system
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│  PDF Processor  │────▶│  NLP Analyzer   │────▶│    Protocol     │
+│                 │     │                 │     │  Recommender    │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+         ▲                      ▲                       ▲
+         │                      │                       │
+         └──────────────────────┼───────────────────────┘
+                               │
+                     ┌─────────────────┐
+                     │                 │
+                     │   Integration   │
+                     │                 │
+                     └─────────────────┘
+                               ▲
+                               │
+                     ┌─────────────────┐
+                     │                 │
+                     │  Web Interface  │
+                     │                 │
+                     └─────────────────┘
+```
+
+## Component Details
+
+### PDF Processor (`pdf_processor.py`)
+
+The PDF Processor module is responsible for extracting text from PDF files and URLs. It uses multiple extraction methods for robustness:
+
+- **PyPDF2**: Primary extraction method
+- **pdfplumber**: Secondary extraction method
+- **poppler-utils (pdftotext)**: Tertiary extraction method for difficult PDFs
+
+Key classes and methods:
+- `PDFProcessor`: Main class for processing PDFs and URLs
+  - `extract_text_from_pdf(pdf_path)`: Extract text from a PDF file
+  - `fetch_url_content(url)`: Fetch and extract content from a URL
+  - `process_input(input_source)`: Process either a file path or URL
+  - `extract_sections(text)`: Attempt to extract common sections from academic papers
+
+### NLP Analyzer (`nlp_analyzer.py`)
+
+The NLP Analyzer module processes text using LangChain with OpenAI integration to extract structured information:
+
+- **Patient Information Extraction**: Extracts age, gender, conditions, measurements, etc.
+- **Research Paper Analysis**: Identifies MRI protocols, field strengths, sequences, etc.
+- **Medical Entity Recognition**: Identifies medical entities and their context
+
+Key classes and models:
+- `MedicalEntity`: Model for medical entities extracted from text
+- `PatientInfo`: Model for structured patient information
+- `ResearchFindings`: Model for structured research findings
+- `NLPAnalyzer`: Main class for NLP analysis
+  - `extract_patient_info(patient_text)`: Extract structured patient information
+  - `analyze_research_paper(paper_text)`: Analyze research paper text
+  - `analyze_multiple_papers(paper_texts)`: Analyze multiple papers and combine findings
+
+### Protocol Recommender (`protocol_recommender.py`)
+
+The Protocol Recommender module generates personalized MRI protocol recommendations based on patient information and research findings:
+
+- **Kidney Function Assessment**: Evaluates kidney function for contrast considerations
+- **Condition Analysis**: Identifies relevant medical conditions
+- **Protocol Selection**: Selects appropriate protocols based on patient data and research
+
+Key classes and models:
+- `ProtocolRecommendation`: Model for MRI protocol recommendations
+- `ProtocolRecommender`: Main class for generating recommendations
+  - `_check_kidney_function(patient_info)`: Check kidney function for contrast suitability
+  - `_check_conditions(patient_info)`: Check for specific conditions affecting protocol selection
+  - `generate_recommendation(patient_info, research_findings)`: Generate protocol recommendation
+
+### Integration Layer (`integration.py`)
+
+The Integration module coordinates the workflow between all components:
+
+- **Unified Interface**: Provides a single interface for the complete workflow
+- **Resource Management**: Handles resource allocation and cleanup
+- **Error Handling**: Provides robust error handling across components
+
+Key classes:
+- `SmartMRIPlanner`: Main integration class
+  - `process_patient_data(patient_text)`: Process patient data
+  - `process_research_papers(paper_sources)`: Process research papers
+  - `generate_protocol_recommendation(patient_info, research_findings)`: Generate recommendation
+  - `process_complete_workflow(patient_text, paper_sources)`: Process complete workflow
+
+### Web Interface (`app.py`)
+
+The Web Interface is built with Flask and provides:
+
+- **File Upload**: Interface for uploading PDF research papers
+- **URL Input**: Interface for entering paper URLs
+- **Patient Data Input**: Form for entering patient information
+- **Results Display**: Visualization of protocol recommendations
+
+Key routes:
+- `/`: Main page with the user interface
+- `/api/process`: API endpoint for processing inputs and generating recommendations
+- `/api/test`: Test endpoint for UI testing without API calls
+
+## Data Flow
+
+1. **Input Processing**:
+   - User uploads PDF files or provides URLs
+   - User enters patient information
+   - Flask app receives the inputs
+
+2. **PDF Processing**:
+   - PDF files and URLs are processed to extract text
+   - Text is preprocessed and cleaned
+
+3. **NLP Analysis**:
+   - Patient text is analyzed to extract structured information
+   - Research paper text is analyzed to extract relevant findings
+
+4. **Protocol Recommendation**:
+   - Patient information and research findings are used to generate recommendations
+   - Recommendations include sequences, field strength, special considerations, etc.
+
+5. **Result Presentation**:
+   - Recommendations are formatted and returned to the user interface
+   - Results are displayed in a structured, readable format
+
+## Dependencies
+
+- **Python 3.10+**: Core programming language
+- **Flask**: Web framework
+- **LangChain**: Framework for LLM applications
+- **OpenAI API**: For NLP processing
+- **PyPDF2/pdfplumber**: PDF text extraction
+- **poppler-utils**: Command-line PDF utilities
+- **Requests/BeautifulSoup**: Web scraping and URL processing
+
+## Development Environment Setup
+
+1. **Clone the repository**:
+   ```
+   git clone https://github.com/yourusername/SmartMRI_Planner.git
+   cd SmartMRI_Planner
+   ```
+
+2. **Create a virtual environment**:
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
+   ```
+   pip install -r requirements.txt
+   ```
+
+4. **Install system dependencies**:
+   ```
+   sudo apt-get update
+   sudo apt-get install -y poppler-utils
+   ```
+
+5. **Set up environment variables**:
+   Create a `.env` file with:
+   ```
+   OPENAI_API_KEY=your-api-key-here
+   SECRET_KEY=your-secret-key-here
+   ```
+
+## Testing
+
+The application includes comprehensive tests:
+
+- **Unit Tests**: Test individual components
+  - `test_pdf_processor.py`: Tests PDF processing functionality
+  - `test_nlp_analyzer.py`: Tests NLP analysis with mock data
+  - `test_protocol_recommender.py`: Tests protocol recommendation logic
+
+- **Integration Tests**: Test component integration
+  - `test_integration.py`: Tests the complete workflow with mock data
+
+Run tests with:
+```
+python -m unittest discover tests
+```
+
+## Deployment
+
+### Local Deployment
+
+For local deployment:
+```
+python src/app.py
+```
+
+### Production Deployment
+
+For production deployment, we recommend using Gunicorn with Nginx:
+
+1. **Install Gunicorn**:
+   ```
+   pip install gunicorn
+   ```
+
+2. **Create a WSGI entry point** (`wsgi.py`):
+   ```python
+   import sys
+   import os
+   
+   # Add the src directory to the Python path
+   sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+   
+   from src.app import app
+   
+   if __name__ == "__main__":
+       app.run()
+   ```
+
+3. **Run with Gunicorn**:
+   ```
+   gunicorn --bind 0.0.0.0:8000 wsgi:app
+   ```
+
+4. **Set up Nginx** (example configuration):
+   ```
+   server {
+       listen 80;
+       server_name yourdomain.com;
+   
+       location / {
+           proxy_pass http://127.0.0.1:8000;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+       }
+   }
+   ```
+
+### Docker Deployment
+
+A Dockerfile is provided for containerized deployment:
+
+1. **Build the Docker image**:
+   ```
+   docker build -t smartmri-planner .
+   ```
+
+2. **Run the container**:
+   ```
+   docker run -p 5000:5000 -e OPENAI_API_KEY=your-api-key-here smartmri-planner
+   ```
+
+## API Documentation
+
+### `/api/process` (POST)
+
+Process patient information and research papers to generate a recommendation.
+
+**Request Parameters**:
+- `patient_info` (required): Patient clinical information text
+- `papers`: PDF files to upload (multipart/form-data)
+- `paper_urls`: Newline-separated list of URLs to research papers
+- `api_key` (optional): OpenAI API key (if not set in environment)
+
+**Response Format**:
+```json
+{
+  "sequences": ["T1 mapping", "T2 mapping"],
+  "field_strength": "3T",
+  "contrast_agent": "None (non-contrast protocol)",
+  "special_considerations": ["Breath-held acquisitions"],
+  "rationale": "Explanation for the recommendation",
+  "alternative_options": [
+    {
+      "sequences": ["T1 mapping"],
+      "field_strength": "1.5T",
+      "rationale": "Alternative explanation"
+    }
+  ],
+  "contraindications": ["Gadolinium-based contrast agents"],
+  "analyzed_papers": ["paper1.pdf", "https://example.com/paper2"]
+}
+```
+
+### `/api/test` (GET)
+
+Returns a mock recommendation for testing the UI.
+
+**Response Format**: Same as `/api/process`
+
+## Extending the Application
+
+### Adding New PDF Processing Methods
+
+To add a new PDF processing method:
+1. Modify `PDFProcessor.extract_text_from_pdf()` in `pdf_processor.py`
+2. Add your new extraction method as a fallback option
+
+### Enhancing NLP Capabilities
+
+To enhance NLP capabilities:
+1. Modify the prompt templates in `NLPAnalyzer` class
+2. Update the Pydantic models to include new fields
+3. Adjust the LLM parameters as needed
+
+### Adding New Protocol Recommendations
+
+To add new protocol recommendation logic:
+1. Update the `_check_conditions()` method in `ProtocolRecommender`
+2. Modify the recommendation generation prompt template
+3. Update the `ProtocolRecommendation` model if needed
+
+## Troubleshooting for Developers
+
+### Common Development Issues
+
+1. **OpenAI API Issues**:
+   - Check API key validity
+   - Verify network connectivity
+   - Check for rate limiting or quota issues
+
+2. **PDF Extraction Problems**:
+   - Ensure poppler-utils is installed
+   - Try different extraction methods for problematic PDFs
+   - Check PDF permissions and encryption
+
+3. **Flask Application Errors**:
+   - Check for port conflicts
+   - Verify static files are accessible
+   - Check for CORS issues if accessing from different domains
+
+### Debugging Tips
+
+- Enable Flask debug mode by setting `debug=True` in `app.run()`
+- Use `print()` statements or a proper logging framework
+- Check the browser console for frontend JavaScript errors
+- Use Flask's built-in debugger for tracing issues
+
+## Security Considerations
+
+- **API Key Protection**: Never commit API keys to version control
+- **Input Validation**: All user inputs should be validated
+- **File Upload Security**: Limit file sizes and types
+- **Error Handling**: Avoid exposing sensitive information in error messages
+- **HTTPS**: Use HTTPS in production environments
+
+## Future Enhancements
+
+Potential areas for future development:
+
+1. **Offline Mode**: Add support for running without internet connection
+2. **Additional LLM Options**: Support for different LLM providers
+3. **User Accounts**: Add user authentication and saved recommendations
+4. **Feedback Loop**: Implement a system for radiologists to provide feedback
+5. **Integration with PACS**: Connect with Picture Archiving and Communication Systems
+6. **Mobile App**: Develop a companion mobile application

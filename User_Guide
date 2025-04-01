@@ -1,0 +1,143 @@
+# SmartMRI Planner - User Documentation
+
+## Overview
+
+SmartMRI Planner is an advanced application that leverages artificial intelligence to generate personalized MRI protocol recommendations based on patient information and research literature. The application analyzes research papers and patient clinical data to suggest optimal MRI protocols, sequences, field strengths, and special considerations.
+
+## Features
+
+- **Research Paper Analysis**: Upload PDF research papers or provide URLs to academic articles
+- **Patient Data Processing**: Enter patient clinical information in natural language format
+- **Personalized Recommendations**: Receive tailored MRI protocol recommendations based on patient conditions and research findings
+- **Comprehensive Output**: View recommended sequences, field strength, special considerations, rationale, and alternative options
+
+## Getting Started
+
+### Prerequisites
+
+- Modern web browser (Chrome, Firefox, Safari, or Edge)
+- OpenAI API key for NLP processing
+
+### Installation
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/SmartMRI_Planner.git
+   cd SmartMRI_Planner
+   ```
+
+2. Create a virtual environment and install dependencies:
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. Create a `.env` file in the project root directory with your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your-api-key-here
+   SECRET_KEY=your-secret-key-here
+   ```
+
+4. Run the application:
+   ```
+   python src/app.py
+   ```
+
+5. Open your web browser and navigate to:
+   ```
+   http://localhost:5000
+   ```
+
+## Using SmartMRI Planner
+
+### Step 1: Prepare Research Papers
+
+Gather relevant research papers on MRI protocols related to your patient's condition. These can be PDF files on your computer or URLs to online academic papers.
+
+### Step 2: Enter Patient Information
+
+In the "Patient Information" section, enter the patient's clinical information in natural language format. Include relevant details such as:
+- Age and gender
+- Medical conditions (e.g., hypertension, diabetes)
+- Laboratory values (e.g., eGFR)
+- Assessment goals (e.g., "Assess for fibrosis")
+
+Example:
+```
+Patient is a 58 year old male with a history of stage 2 hypertension and eGFR of 45mL/min/1.73m2. Assess for fibrosis.
+```
+
+### Step 3: Upload Research Papers or Provide URLs
+
+You can either:
+- Upload PDF files by clicking "Choose Files" in the "Upload PDF Research Papers" section
+- Enter URLs to online research papers in the "Or Enter Paper URLs" text area (one URL per line)
+
+### Step 4: Generate Recommendation
+
+Click the "Generate Protocol Recommendation" button to process the inputs. The system will:
+1. Extract text from the research papers
+2. Analyze the patient information
+3. Generate a personalized MRI protocol recommendation
+
+### Step 5: Review Recommendation
+
+The recommendation will include:
+- **Recommended Sequences**: Specific MRI sequences for the patient's condition
+- **Field Strength**: Recommended Tesla strength (e.g., 1.5T, 3T)
+- **Contrast Agent**: Whether contrast should be used
+- **Special Considerations**: Important factors to consider during the MRI
+- **Rationale**: Explanation for the recommendation
+- **Alternative Options**: Other possible protocols if the primary recommendation isn't feasible
+- **Contraindications**: Factors that might contraindicate certain protocols
+
+## Example Use Case
+
+**Patient Information:**
+```
+Patient is a 58 year old male with a history of stage 2 hypertension and eGFR of 45mL/min/1.73m2. Assess for fibrosis.
+```
+
+**Research Papers:**
+- "Advanced MRI Protocols for Cardiac Fibrosis"
+- "MRI Assessment in Patients with Reduced Kidney Function"
+
+**Recommendation Output:**
+- **Sequences**: T1 mapping, T2 mapping, Native T1
+- **Field Strength**: 3T
+- **Contrast Agent**: None (non-contrast protocol)
+- **Special Considerations**: 
+  - Breath-held acquisitions to improve image quality
+  - Non-contrast protocol due to reduced kidney function (eGFR 45)
+- **Rationale**: Based on the patient's stage 2 hypertension and reduced kidney function (eGFR 45), a non-contrast protocol using native T1 and T2 mapping at 3T with breath-held acquisitions is recommended for optimal assessment of fibrosis while minimizing risks.
+- **Alternative Options**: If 3T is not available, 1.5T can be used with slightly reduced sensitivity.
+- **Contraindications**: Gadolinium-based contrast agents are relatively contraindicated due to reduced kidney function.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Error: "OpenAI API key is required"**
+   - Ensure you've set up the `.env` file with your OpenAI API key
+   - Check that the environment variable is being loaded correctly
+
+2. **Error: "No valid papers provided"**
+   - Verify that your PDF files are valid and readable
+   - Check that URLs are correct and accessible
+
+3. **Slow Processing Time**
+   - Large research papers may take longer to process
+   - Complex patient cases with multiple conditions may require more analysis time
+
+### Support
+
+For additional support or to report issues, please contact [support@smartmriplanner.com](mailto:support@smartmriplanner.com) or open an issue on our GitHub repository.
+
+## Privacy and Data Security
+
+SmartMRI Planner processes all data locally on your machine. Patient information and research papers are not stored permanently and are only used for generating recommendations. API calls to OpenAI are made with standard privacy protections.
+
+## Disclaimer
+
+SmartMRI Planner is designed as a decision support tool and should not replace professional medical judgment. Always consult with qualified radiologists and healthcare providers before finalizing MRI protocols for patients.
