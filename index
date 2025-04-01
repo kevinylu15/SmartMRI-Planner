@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMRI Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 40px;
+            background-color: #f8f9fa;
+        }
+        .header {
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .logo {
+            max-height: 60px;
+            margin-right: 15px;
+        }
+        .form-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .result-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .protocol-card {
+            border-left: 5px solid #0d6efd;
+            margin-bottom: 20px;
+        }
+        .alternative-card {
+            border-left: 5px solid #6c757d;
+            margin-bottom: 10px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header d-flex align-items-center">
+            <img src="static/logo.png" alt="SmartMRI Planner Logo" class="logo">
+            <h1>SmartMRI Planner</h1>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="form-container">
+                    <h2>Generate MRI Protocol Recommendations</h2>
+                    <p class="lead">Upload research papers and enter patient information to receive personalized MRI protocol recommendations.</p>
+                    
+                    <form id="mriForm">
+                        <div class="mb-4">
+                            <h4>Research Papers</h4>
+                            <div class="mb-3">
+                                <label for="paperUpload" class="form-label">Upload PDF Research Papers</label>
+                                <input class="form-control" type="file" id="paperUpload" multiple accept=".pdf">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="paperUrl" class="form-label">Or Enter Paper URLs (one per line)</label>
+                                <textarea class="form-control" id="paperUrl" rows="3" placeholder="https://example.com/research-paper.pdf"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h4>Patient Information</h4>
+                            <div class="mb-3">
+                                <label for="patientInfo" class="form-label">Patient Clinical Information</label>
+                                <textarea class="form-control" id="patientInfo" rows="5" placeholder="Patient is a 58 year old male with a history of stage 2 hypertension and eGFR of 45mL/min/1.73m2. Assess for fibrosis."></textarea>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Generate Protocol Recommendation</button>
+                    </form>
+                    
+                    <div class="loading mt-4" id="loadingIndicator">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Analyzing papers and generating recommendations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="result-container" id="resultContainer" style="display: none;">
+                    <h2>MRI Protocol Recommendation</h2>
+                    
+                    <div class="card protocol-card">
+                        <div class="card-body">
+                            <h4 class="card-title">Recommended Protocol</h4>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h5>Sequences</h5>
+                                    <ul id="sequences" class="list-group list-group-flush">
+                                        <!-- Sequences will be inserted here -->
+                                    </ul>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <h5>Parameters</h5>
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item"><strong>Field Strength:</strong> <span id="fieldStrength"></span></li>
+                                        <li class="list-group-item"><strong>Contrast Agent:</strong> <span id="contrastAgent"></span></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <h5>Special Considerations</h5>
+                            <ul id="specialConsiderations" class="list-group list-group-flush mb-3">
+                                <!-- Special considerations will be inserted here -->
+                            </ul>
+                            
+                            <h5>Rationale</h5>
+                            <p id="rationale" class="card-text"></p>
+                            
+                            <h5>Contraindications</h5>
+                            <ul id="contraindications" class="list-group list-group-flush">
+                                <!-- Contraindications will be inserted here -->
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div id="alternativesSection">
+                        <h4>Alternative Options</h4>
+                        <div id="alternativeOptions">
+                            <!-- Alternative options will be inserted here -->
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h4>Research Papers Analyzed</h4>
+                        <ul id="analyzedPapers" class="list-group">
+                            <!-- Analyzed papers will be inserted here -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer text-center">
+            <p>SmartMRI Planner &copy; 2025 - Leveraging AI for personalized MRI protocol recommendations</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('mriForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            // In a real implementation, this would send the form data to the backend
+            // For demonstration, we'll simulate a response after a delay
+            setTimeout(function() {
+                // Hide loading indicator
+                document.getElementById('loadingIndicator').style.display = 'none';
+                
+                // Show results
+                displayResults();
+            }, 2000);
+        });
+        
+        function displayResults() {
+            // This is mock data - in a real implementation, this would come from the backend
+            const recommendation = {
+                sequences: ["T1 mapping", "T2 mapping", "Native T1"],
+                field_strength: "3T",
+                contrast_agent: "None (non-contrast protocol)",
+                special_considerations: [
+                    "Breath-held acquisitions to improve image quality",
+                    "Non-contrast protocol due to reduced kidney function (eGFR 45)"
+                ],
+                rationale: "Based on the patient's stage 2 hypertension and reduced kidney function (eGFR 45), a non-contrast protocol using native T1 and T2 mapping at 3T with breath-held acquisitions is recommended for optimal assessment of fibrosis while minimizing risks.",
+                alternative_options: [
+                    {
+                        sequences: ["T1 mapping", "T2 mapping"],
+                        field_strength: "1.5T",
+                        rationale: "If 3T is not available, 1.5T can be used with slightly reduced sensitivity."
+                    }
+                ],
+                contraindications: [
+                    "Gadolinium-based contrast agents are relatively contraindicated due to reduced kidney function."
+                ],
+                analyzed_papers: [
+                    "Smith et al. (2024) - Advanced MRI Protocols for Cardiac Fibrosis",
+                    "Johnson et al. (2023) - MRI Assessment in Patients with Reduced Kidney Function"
+                ]
+            };
+            
+            // Populate the results
+            document.getElementById('fieldStrength').textContent = recommendation.field_strength;
+            document.getElementById('contrastAgent').textContent = recommendation.contrast_agent;
+            document.getElementById('rationale').textContent = recommendation.rationale;
+            
+            // Populate sequences
+            const sequencesList = document.getElementById('sequences');
+            sequencesList.innerHTML = '';
+            recommendation.sequences.forEach(sequence => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = sequence;
+                sequencesList.appendChild(li);
+            });
+            
+            // Populate special considerations
+            const considerationsList = document.getElementById('specialConsiderations');
+            considerationsList.innerHTML = '';
+            recommendation.special_considerations.forEach(consideration => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = consideration;
+                considerationsList.appendChild(li);
+            });
+            
+            // Populate contraindications
+            const contraindicationsList = document.getElementById('contraindications');
+            contraindicationsList.innerHTML = '';
+            recommendation.contraindications.forEach(contraindication => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = contraindication;
+                contraindicationsList.appendChild(li);
+            });
+            
+            // Populate alternative options
+            const alternativesContainer = document.getElementById('alternativeOptions');
+            alternativesContainer.innerHTML = '';
+            recommendation.alternative_options.forEach(option => {
+                const card = document.createElement('div');
+                card.className = 'card alternative-card';
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                const title = document.createElement('h5');
+                title.className = 'card-title';
+                title.textContent = `Alternative: ${option.field_strength}`;
+                
+                const sequencesTitle = document.createElement('h6');
+                sequencesTitle.textContent = 'Sequences:';
+                
+                const sequencesList = document.createElement('ul');
+                sequencesList.className = 'list-group list-group-flush mb-3';
+                option.sequences.forEach(sequence => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.textContent = sequence;
+                    sequencesList.appendChild(li);
+                });
+                
+                const rationale = document.createElement('p');
+                rationale.className = 'card-text';
+                rationale.textContent = option.rationale;
+                
+                cardBody.appendChild(title);
+                cardBody.appendChild(sequencesTitle);
+                cardBody.appendChild(sequencesList);
+                cardBody.appendChild(document.createElement('h6')).textContent = 'Rationale:';
+                cardBody.appendChild(rationale);
+                
+                card.appendChild(cardBody);
+                alternativesContainer.appendChild(card);
+            });
+            
+            // Populate analyzed papers
+            const papersList = document.getElementById('analyzedPapers');
+            papersList.innerHTML = '';
+            recommendation.analyzed_papers.forEach(paper => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = paper;
+                papersList.appendChild(li);
+            });
+            
+            // Show the results container
+            document.getElementById('resultContainer').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

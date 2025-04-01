@@ -1,109 +1,197 @@
+"""
+Flask application for SmartMRI Planner
+
+This module serves as the web interface for the SmartMRI Planner application,
+connecting the UI with the integrated SmartMRI Planner backend.
+"""
+
 import os
-from typing import Optional, List
-#import fitz  # PyMuPDF, kept in case you want to support PDFs later
-from medpalm.model import MedPalm  # Import the MedPalm model
-from flask import Flask, request, render_template
-from dotenv import load_dotenv
-from langchain.llms import OpenAI, LLM
-from langchain.chains import LLMChain, SimpleSequentialChain
-from langchain.prompts import PromptTemplate
-from langchain.document_loaders import WebBaseLoader  # To load scientific papers from URL(s)
-from langchain_community.document_loaders import PyMuPDFLoader  # For PDF support if needed
-from langchain_community.llms import OpenAI, LLM
+import tempfile
+import uuid
+from flask import Flask, render_template, request, jsonify, session
+from werkzeug.utils import secure_filename
 
-# Load environment variables
-load_dotenv()
+# Import our modules
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.integration import SmartMRIPlanner
 
+# Initialize Flask app
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'dev-key-for-testing')
+app.config['UPLOAD_FOLDER'] = tempfile.mkdtemp()
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload size
 
-class MedpalmLLM(LLM):
-    def __init__(self, model=None):
-        super().__init__()
-        self.model = model or self._initialize_model()
-    
-    def _initialize_model(self):
-        # Initialize MedPalm model here
-        return MedPalm()  
-    
-    def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
-        try:
-            # Implement actual MedPalm query logic here
-            img = torch.randn(1, 3, 256, 256)  # Placeholder for actual image input
-            text = torch.randint(0, 20000, (1, 4096))  # Placeholder for actual text input
-            output = self.model(img, text)
-            return f"MedPalm analysis: {output}"  # Placeholder for actual output processing
-        except Exception as e:
-            raise RuntimeError(f"MedPalm query failed: {str(e)}")
+# This will be initialized when API key is provided
+planner = None
 
-    @property
-    def _identifying_params(self):
-        return {"name": "MedPaLMLLM"}
-
-def extract_text_from_webpage(url: str) -> str:
-    loader = WebBaseLoader(url)
-    docs = loader.load()  # Returns a list of Document objects
-    # Combine text from all loaded documents (or select the most relevant one)
-    combined_text = "\n".join(doc.page_content for doc in docs)
-    return combined_text
-
-@app.route("/", methods=["GET", "POST"])
+@app.route('/')
 def index():
-    if request.method == "POST":
-        clinical_query = request.form["clinical_query"]
-        # Retrieve the URL input for the scientific paper(s) on MRI protocols
-        paper_url = request.form.get("paper_url")
+    """Render the main page."""
+    return render_template('index.html')
+
+@app.route('/api/process', methods=['POST'])
+def process():
+    """
+    Process the uploaded files, URLs, and patient information.
+    
+    Returns:
+        JSON response with protocol recommendation
+    """
+    try:
+        # Check if OpenAI API key is provided
+        api_key = request.form.get('api_key')
+        if not api_key and not os.getenv('OPENAI_API_KEY'):
+            return jsonify({
+                'error': 'OpenAI API key is required. Please provide it in the form or set the OPENAI_API_KEY environment variable.'
+            }), 400
         
-        try:
-            document_text = ""
-            
-            # If a URL is provided, extract text from the scientific paper
-            if paper_url:
-                document_text = extract_text_from_webpage(paper_url)
-            
-            # Ensure that we have some document text to work with
-            if not document_text.strip():
-                raise ValueError("No document text could be extracted. Please provide a valid URL to a scientific paper on MRI protocols.")
-            
-            # Verify API key exists
-            if not os.getenv("OPENAI_API_KEY"):
-                raise ValueError("OpenAI API key not found in environment variables")
-                
-            # OpenAI LLM Chain Setup (acting as an MRI protocol expert)
-            openai_llm = OpenAI(temperature=0.7)
-            openai_prompt_template = PromptTemplate(
-                input_variables=["clinical_query", "document_text"],
-                template=(
-                    "You are an expert in MRI protocols. Given the clinical prompt below and the scientific paper text on MRI protocols, "
-                    "analyze the information and provide a concise recommendation with details such as sequences, field strength, and special considerations.\n\n"
-                    "Clinical Prompt: {clinical_query}\n\n"
-                    "Scientific Paper Text: {document_text}\n\n"
-                    "Recommendation (e.g., Sequences, Field Strength, Special Considerations):"
-                )
-            )
-            openai_chain = LLMChain(llm=openai_llm, prompt=openai_prompt_template)
+        # Initialize SmartMRI Planner if not already done
+        global planner
+        if not planner:
+            planner = SmartMRIPlanner(api_key)
+        
+        # Get patient information
+        patient_text = request.form.get('patient_info', '')
+        if not patient_text:
+            return jsonify({'error': 'Patient information is required'}), 400
+        
+        # Get paper URLs
+        paper_urls = request.form.get('paper_urls', '').strip().split('\n')
+        paper_urls = [url.strip() for url in paper_urls if url.strip()]
+        
+        # Process uploaded files
+        uploaded_files = []
+        if 'papers' in request.files:
+            files = request.files.getlist('papers')
+            for file in files:
+                if file and file.filename:
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    uploaded_files.append(filepath)
+        
+        # Combine all paper sources
+        paper_sources = paper_urls + uploaded_files
+        
+        # Check if we have any papers to analyze
+        if not paper_sources:
+            return jsonify({
+                'error': 'No valid papers provided. Please upload PDF files or provide valid URLs.'
+            }), 400
+        
+        # Process the complete workflow
+        result = planner.process_complete_workflow(patient_text, paper_sources)
+        
+        # Format response
+        recommendation = result['recommendation']
+        metadata = result['metadata']
+        
+        response = {
+            'sequences': recommendation['sequences'],
+            'field_strength': recommendation['field_strength'],
+            'contrast_agent': recommendation['contrast_agent'],
+            'special_considerations': recommendation['special_considerations'],
+            'rationale': recommendation['rationale'],
+            'alternative_options': recommendation['alternative_options'],
+            'contraindications': recommendation['contraindications'],
+            'analyzed_papers': metadata['processed_sources']
+        }
+        
+        return jsonify(response)
+    
+    except Exception as e:
+        print(f"Error processing request: {e}")
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        # Clean up temporary files
+        for filepath in uploaded_files:
+            try:
+                os.remove(filepath)
+            except:
+                pass
+        
+        # Clean up planner resources
+        if planner:
+            planner.cleanup()
 
-            # MedPaLM LLM Chain Setup to add additional insights or edge cases
-            medpalm_llm = MedpalmLLM()
-            medpalm_prompt_template = PromptTemplate(
-                input_variables=["openai_response"],
-                template=(
-                    "Review the following recommendation from OpenAI and enhance it by adding any additional insights, particularly "
-                    "addressing rare conditions or edge cases:\n\n"
-                    "{openai_response}\n\n"
-                    "Enhanced Recommendation:"
-                )
-            )
-            medpalm_chain = LLMChain(llm=medpalm_llm, prompt=medpalm_prompt_template)
+@app.route('/api/test', methods=['GET'])
+def test():
+    """
+    Test endpoint that returns a mock recommendation.
+    Used for testing the UI without making actual API calls.
+    
+    Returns:
+        JSON response with mock protocol recommendation
+    """
+    # Mock recommendation data - this simulates the output from the integration module
+    result = {
+        'recommendation': {
+            'sequences': ["T1 mapping", "T2 mapping", "Native T1"],
+            'field_strength': "3T",
+            'contrast_agent': "None (non-contrast protocol)",
+            'special_considerations': [
+                "Breath-held acquisitions to improve image quality",
+                "Non-contrast protocol due to reduced kidney function (eGFR 45)"
+            ],
+            'rationale': "Based on the patient's stage 2 hypertension and reduced kidney function (eGFR 45), a non-contrast protocol using native T1 and T2 mapping at 3T with breath-held acquisitions is recommended for optimal assessment of fibrosis while minimizing risks.",
+            'alternative_options': [
+                {
+                    'sequences': ["T1 mapping", "T2 mapping"],
+                    'field_strength': "1.5T",
+                    'rationale': "If 3T is not available, 1.5T can be used with slightly reduced sensitivity."
+                }
+            ],
+            'contraindications': [
+                "Gadolinium-based contrast agents are relatively contraindicated due to reduced kidney function."
+            ]
+        },
+        'metadata': {
+            'processed_sources': [
+                "Smith et al. (2024) - Advanced MRI Protocols for Cardiac Fibrosis",
+                "Johnson et al. (2023) - MRI Assessment in Patients with Reduced Kidney Function"
+            ],
+            'patient_info': {
+                'age': 58,
+                'gender': 'male',
+                'conditions': [{'entity_type': 'condition', 'name': 'stage 2 hypertension'}],
+                'measurements': [{'entity_type': 'measurement', 'name': 'eGFR', 'value': '45mL/min/1.73m2'}],
+                'assessment_goal': 'Assess for fibrosis'
+            }
+        }
+    }
+    
+    # Format response to match the structure expected by the frontend
+    recommendation = result['recommendation']
+    metadata = result['metadata']
+    
+    response = {
+        'sequences': recommendation['sequences'],
+        'field_strength': recommendation['field_strength'],
+        'contrast_agent': recommendation['contrast_agent'],
+        'special_considerations': recommendation['special_considerations'],
+        'rationale': recommendation['rationale'],
+        'alternative_options': recommendation['alternative_options'],
+        'contraindications': recommendation['contraindications'],
+        'analyzed_papers': metadata['processed_sources']
+    }
+    
+    return jsonify(response)
 
-            # Combine the Chains Sequentially
-            overall_chain = SimpleSequentialChain(chains=[openai_chain, medpalm_chain], verbose=True)
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Handle file too large error."""
+    return jsonify({'error': 'File too large. Maximum file size is 16 MB.'}), 413
 
-            # Run the Combined Chain with the Clinical Prompt and Scientific Paper Text
-            final_response = overall_chain.run(clinical_query=clinical_query, document_text=document_text)
-            return render_template("index.html", response=final_response)
-        except Exception as e:
-            return render_template("index.html", error=str(e))
-    return render_template("index.html")
+@app.errorhandler(500)
+def server_error(error):
+    """Handle server errors."""
+    return jsonify({'error': 'An internal server error occurred. Please try again later.'}), 500
 
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    # Create upload folder if it doesn't exist
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Run the app
+    app.run(host='0.0.0.0', port=5000, debug=True)
