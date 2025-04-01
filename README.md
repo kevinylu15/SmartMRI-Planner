@@ -1,108 +1,102 @@
-## **SmartMRI Planner**
+# SmartMRI Planner - README
 
-SmartMRI Planner is a web-based application built in Python that leverages advanced language models to optimize MRI protocol recommendations. Unlike traditional statistical approaches, this tool uses a sequential LLM chain—first consulting an OpenAI‑powered model to interpret clinical queries alongside scientific literature, and then enhancing the output with specialized insights via a MedPalm model.
+## Overview
 
+SmartMRI Planner is an AI-powered application that generates personalized MRI protocol recommendations based on patient information and research literature. By analyzing research papers and patient clinical data, the application suggests optimal MRI protocols, sequences, field strengths, and special considerations tailored to each patient's specific conditions.
 
-## Table of Contents
+## Key Features
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Algorithm Explanation](#algorithm-explanation)
-- [Limitations](#limitations)
-- [Contributing](#contributing)
-- [License](#license)
+- **Research Paper Analysis**: Upload PDF research articles or provide URLs to academic papers
+- **Patient Data Processing**: Enter patient clinical information in natural language format
+- **AI-Powered Recommendations**: Receive personalized MRI protocol recommendations using LLM/NLP technology
+- **Comprehensive Output**: View recommended sequences, field strength, special considerations, rationale, and alternative options
 
+## Architecture
 
-## **Introduction**
+SmartMRI Planner consists of four main components:
 
-SmartMRI Planner is designed to assist clinicians and researchers in planning MRI protocols by combining expert-level language processing with cutting-edge machine learning. The application uses two LLM chains:
+1. **PDF Processor**: Extracts text from PDF research papers and URLs
+2. **NLP Analyzer**: Processes patient information and research findings using LangChain and OpenAI
+3. **Protocol Recommender**: Generates personalized MRI protocol recommendations
+4. **Web Interface**: Flask-based user interface for interacting with the system
 
-OpenAI LLM Chain: Acts as an MRI protocol expert by analyzing clinical prompts and text extracted from scientific papers.
+## Installation
 
-MedPalm LLM Chain: Further refines the initial recommendation by addressing rare conditions and edge cases.
+### Prerequisites
 
-This dual‑chain setup is implemented using the LangChain library and Flask for a responsive web interface.
+- Python 3.10 or higher
+- poppler-utils (for PDF processing)
+- OpenAI API key
 
+### Quick Start
 
-## **Features**
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/SmartMRI_Planner.git
+   cd SmartMRI_Planner
+   ```
 
-Web Interface: Built using Flask to allow users to input clinical queries and scientific paper URLs.
+2. Create a virtual environment and install dependencies:
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
 
-Dynamic Document Loading: Utilizes WebBaseLoader to extract text from online scientific articles.
+3. Create a `.env` file in the project root directory with your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your-api-key-here
+   SECRET_KEY=your-secret-key-here
+   ```
 
-Sequential LLM Processing:
+4. Run the application:
+   ```
+   python src/app.py
+   ```
 
-The first chain uses an OpenAI‑based model to generate an initial recommendation based on clinical context and scientific literature.
+5. Open your web browser and navigate to:
+   ```
+   http://localhost:5000
+   ```
 
-The second chain employs a MedPalm model to enhance the recommendation with additional insights.
+## Usage
 
-Flexible Configuration: Environment variables (e.g., OPENAI_API_KEY) manage API keys and settings.
+1. Enter patient information in the provided text area
+2. Upload PDF research papers or provide URLs to academic articles
+3. Click "Generate Protocol Recommendation"
+4. Review the personalized MRI protocol recommendation
 
-Extensibility: The code is structured to allow future enhancements, such as PDF support via PyMuPDF or more robust MedPalm integration.
+## Example
 
-## **Installation**
+**Patient Information:**
+```
+Patient is a 58 year old male with a history of stage 2 hypertension and eGFR of 45mL/min/1.73m2. Assess for fibrosis.
+```
 
-To install, clone the repository, create a virtual environment, install dependencies, and setup environment variables to run the application.
+**Recommendation Output:**
+- **Sequences**: T1 mapping, T2 mapping, Native T1
+- **Field Strength**: 3T
+- **Special Considerations**: Breath-held acquisitions, Non-contrast protocol
+- **Rationale**: Based on the patient's stage 2 hypertension and reduced kidney function (eGFR 45), a non-contrast protocol using native T1 and T2 mapping at 3T with breath-held acquisitions is recommended for optimal assessment of fibrosis while minimizing risks.
 
-## **Usage**
+## Documentation
 
-Access the Web Interface: Open your browser and navigate to the provided URL.
+For more detailed information, please refer to:
 
-Input Your Data:
+- [User Guide](docs/user_guide.md): Comprehensive guide for users
+- [Technical Documentation](docs/technical_documentation.md): Detailed technical information for developers
+- [Deployment Guide](docs/deployment_guide.md): Instructions for deploying the application
 
-Clinical Query: Enter your clinical question or scenario regarding MRI protocols.
+## License
 
-Scientific Paper URL: Provide a URL linking to a relevant scientific paper (optional, but recommended for more detailed insights).
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-Submit: The system will extract the paper’s content, run the dual LLM chain to analyze the input, and then display a detailed recommendation.
+## Acknowledgments
 
-Receive Recommendations: The final output includes proposed MRI sequences, suggested field strengths, and special considerations—including insights on rare conditions.
+- OpenAI for providing the API for NLP processing
+- LangChain for the LLM application framework
+- Flask team for the web framework
 
-## **Algorithm Explanation**
+## Disclaimer
 
-SmartMRI Planner processes requests in two main stages:
-
-OpenAI LLM Chain:
-
-Input: Clinical prompt and text extracted from a scientific paper.
-
-Task: Analyze and provide a concise recommendation covering sequences, field strength, and other considerations.
-
-Prompt Example:
-
-pgsql
-Copy
-You are an expert in MRI protocols. Given the clinical prompt below and the scientific paper text on MRI protocols, analyze the information and provide a concise recommendation with details such as sequences, field strength, and special considerations.
-MedPalm LLM Chain:
-
-Input: The recommendation generated by the OpenAI chain.
-
-Task: Enhance the recommendation by adding further insights and addressing potential edge cases or rare conditions.
-
-Prompt Example:
-
-csharp
-Copy
-Review the following recommendation from OpenAI and enhance it by adding any additional insights, particularly addressing rare conditions or edge cases:
-Sequential Execution:
-
-The output of the first chain becomes the input for the second, ensuring that both general expertise and specialized considerations are addressed.
-
-The final recommendation is then rendered on the web interface.
-
-## **Limitations**
-
-Error Handling: The function has basic error checking for formulas and mathematical operations but may not handle all edge cases.
-Extensions: Only supports binary response variables.
-Performance: Potentially slow for large, complex datasets.
-Testing: Does not display significance test results or standard errors.
-
-## **Contributing**
-
-If you'd like to improve the function or add features, please submit a pull request or send me an email.
-
-## **License**
-
-The Logistic Regression Model Funciton is released under the MIT License. See the **[LICENSE](https://www.blackbox.ai/share/LICENSE)** file for details.
+SmartMRI Planner is designed as a decision support tool and should not replace professional medical judgment. Always consult with qualified radiologists and healthcare providers before finalizing MRI protocols for patients.
