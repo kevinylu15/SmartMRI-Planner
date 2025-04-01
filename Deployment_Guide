@@ -1,0 +1,423 @@
+# SmartMRI Planner - Deployment Guide
+
+## Deployment Options
+
+SmartMRI Planner can be deployed in several ways depending on your requirements:
+
+1. **Local Development Deployment**
+2. **Production Server Deployment**
+3. **Docker Containerized Deployment**
+
+This guide covers all three options with step-by-step instructions.
+
+## Prerequisites
+
+- Python 3.10 or higher
+- pip package manager
+- Git (for cloning the repository)
+- OpenAI API key
+- poppler-utils (for PDF processing)
+
+## Local Development Deployment
+
+This is the simplest deployment method, suitable for testing and development.
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/yourusername/SmartMRI_Planner.git
+cd SmartMRI_Planner
+```
+
+### Step 2: Set Up Virtual Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Install System Dependencies
+
+```bash
+# On Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y poppler-utils
+
+# On macOS with Homebrew
+brew install poppler
+
+# On Windows
+# Download and install poppler from http://blog.alivate.com.au/poppler-windows/
+```
+
+### Step 5: Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```
+OPENAI_API_KEY=your-openai-api-key-here
+SECRET_KEY=your-secret-key-here
+```
+
+### Step 6: Run the Application
+
+```bash
+python src/app.py
+```
+
+The application will be available at `http://localhost:5000`.
+
+## Production Server Deployment
+
+For production environments, we recommend using Gunicorn (or uWSGI) with Nginx.
+
+### Step 1: Set Up the Server
+
+Follow steps 1-4 from the Local Development Deployment section.
+
+### Step 2: Create a WSGI Entry Point
+
+Create a file named `wsgi.py` in the project root:
+
+```python
+import sys
+import os
+
+# Add the src directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.app import app
+
+if __name__ == "__main__":
+    app.run()
+```
+
+### Step 3: Install Gunicorn
+
+```bash
+pip install gunicorn
+```
+
+### Step 4: Create a Systemd Service (Optional)
+
+Create a file at `/etc/systemd/system/smartmri.service`:
+
+```
+[Unit]
+Description=SmartMRI Planner
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/path/to/SmartMRI_Planner
+Environment="PATH=/path/to/SmartMRI_Planner/venv/bin"
+EnvironmentFile=/path/to/SmartMRI_Planner/.env
+ExecStart=/path/to/SmartMRI_Planner/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:8000 wsgi:app
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+sudo systemctl enable smartmri
+sudo systemctl start smartmri
+```
+
+### Step 5: Configure Nginx
+
+Install Nginx:
+
+```bash
+sudo apt-get install nginx
+```
+
+Create a configuration file at `/etc/nginx/sites-available/smartmri`:
+
+```
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static {
+        alias /path/to/SmartMRI_Planner/src/static;
+    }
+}
+```
+
+Enable the site and restart Nginx:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/smartmri /etc/nginx/sites-enabled
+sudo nginx -t  # Test the configuration
+sudo systemctl restart nginx
+```
+
+### Step 6: Set Up SSL (Recommended)
+
+Install Certbot:
+
+```bash
+sudo apt-get install certbot python3-certbot-nginx
+```
+
+Obtain and configure SSL certificate:
+
+```bash
+sudo certbot --nginx -d yourdomain.com
+```
+
+## Docker Containerized Deployment
+
+### Step 1: Create a Dockerfile
+
+Create a file named `Dockerfile` in the project root:
+
+```dockerfile
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV FLASK_APP=src/app.py
+
+# Expose port
+EXPOSE 5000
+
+# Run the application
+CMD ["python", "src/app.py"]
+```
+
+### Step 2: Create a .dockerignore File
+
+```
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.env
+*.md
+```
+
+### Step 3: Build the Docker Image
+
+```bash
+docker build -t smartmri-planner .
+```
+
+### Step 4: Run the Docker Container
+
+```bash
+docker run -p 5000:5000 -e OPENAI_API_KEY=your-api-key-here -e SECRET_KEY=your-secret-key-here smartmri-planner
+```
+
+The application will be available at `http://localhost:5000`.
+
+### Step 5: Docker Compose (Optional)
+
+Create a `docker-compose.yml` file:
+
+```yaml
+version: '3'
+
+services:
+  smartmri:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - OPENAI_API_KEY=your-api-key-here
+      - SECRET_KEY=your-secret-key-here
+    restart: unless-stopped
+```
+
+Run with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+## Cloud Deployment Options
+
+### AWS Elastic Beanstalk
+
+1. Install the EB CLI:
+   ```bash
+   pip install awsebcli
+   ```
+
+2. Initialize EB application:
+   ```bash
+   eb init -p python-3.10 smartmri-planner
+   ```
+
+3. Create an environment:
+   ```bash
+   eb create smartmri-env
+   ```
+
+4. Deploy:
+   ```bash
+   eb deploy
+   ```
+
+### Google Cloud Run
+
+1. Build and push the Docker image:
+   ```bash
+   gcloud builds submit --tag gcr.io/your-project/smartmri-planner
+   ```
+
+2. Deploy to Cloud Run:
+   ```bash
+   gcloud run deploy smartmri-planner \
+     --image gcr.io/your-project/smartmri-planner \
+     --platform managed \
+     --set-env-vars OPENAI_API_KEY=your-api-key-here,SECRET_KEY=your-secret-key-here
+   ```
+
+### Heroku
+
+1. Create a `Procfile`:
+   ```
+   web: gunicorn wsgi:app
+   ```
+
+2. Deploy to Heroku:
+   ```bash
+   heroku create smartmri-planner
+   heroku config:set OPENAI_API_KEY=your-api-key-here
+   heroku config:set SECRET_KEY=your-secret-key-here
+   git push heroku main
+   ```
+
+## Post-Deployment Verification
+
+After deploying, verify that:
+
+1. The application is accessible at the expected URL
+2. File uploads work correctly
+3. URL processing functions properly
+4. Protocol recommendations are generated as expected
+
+## Monitoring and Maintenance
+
+### Logging
+
+Configure logging in `app.py`:
+
+```python
+import logging
+logging.basicConfig(
+    filename='smartmri.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+```
+
+### Backup
+
+Regularly back up your `.env` file and any customizations.
+
+### Updates
+
+To update the application:
+
+1. Pull the latest changes:
+   ```bash
+   git pull origin main
+   ```
+
+2. Install any new dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Restart the application:
+   ```bash
+   # For systemd service
+   sudo systemctl restart smartmri
+   
+   # For Docker
+   docker-compose down
+   docker-compose up -d
+   ```
+
+## Troubleshooting Deployment Issues
+
+### Common Issues
+
+1. **Application not starting**:
+   - Check logs: `sudo journalctl -u smartmri.service`
+   - Verify environment variables are set correctly
+   - Ensure all dependencies are installed
+
+2. **File upload issues**:
+   - Check file permissions in the upload directory
+   - Verify maximum file size settings in both Flask and Nginx
+
+3. **API connectivity problems**:
+   - Test OpenAI API connectivity
+   - Check for firewall or proxy issues
+
+4. **Performance issues**:
+   - Increase Gunicorn workers
+   - Consider scaling up server resources
+   - Optimize PDF processing for large files
+
+## Security Recommendations
+
+1. **API Key Protection**:
+   - Use environment variables for sensitive information
+   - Rotate API keys periodically
+   - Use a secrets manager in production
+
+2. **Network Security**:
+   - Always use HTTPS in production
+   - Configure proper firewall rules
+   - Implement rate limiting
+
+3. **File Upload Security**:
+   - Validate file types and sizes
+   - Scan uploads for malware
+   - Use temporary storage with automatic cleanup
+
+4. **User Authentication**:
+   - Consider adding user authentication for production use
+   - Implement proper session management
+   - Use secure cookies
+
+## Conclusion
+
+This deployment guide covers the most common deployment scenarios for SmartMRI Planner. Choose the option that best fits your infrastructure and requirements. For additional support, refer to the technical documentation or contact the development team.
