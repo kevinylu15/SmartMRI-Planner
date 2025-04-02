@@ -11,9 +11,10 @@ import uuid
 from flask import Flask, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 
-# Import our modules
+# Add the project root to sys.path so 'src' can be found
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.integration import SmartMRIPlanner
 
 # Initialize Flask app
