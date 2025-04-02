@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 import PyPDF2
 import pdfplumber
-import subprocess
+# Removed subprocess import as it's no longer needed
 from typing import Dict, List, Optional, Union
 
 
@@ -59,15 +59,22 @@ class PDFProcessor:
             except Exception as e:
                 print(f"pdfplumber extraction failed: {e}")
         
-        # If both libraries failed, try using poppler-utils (pdftotext)
+        # If both libraries failed, try one more time with PyPDF2 with different settings
         if len(text.strip()) < 100:
             try:
-                output_file = os.path.join(self.temp_dir, "output.txt")
-                subprocess.run(["pdftotext", pdf_path, output_file], check=True)
-                with open(output_file, 'r', encoding='utf-8', errors='ignore') as file:
-                    text = file.read()
+                text = ""
+                with open(pdf_path, 'rb') as file:
+                    reader = PyPDF2.PdfReader(file)
+                    # Try extracting with a different approach
+                    for page_num in range(len(reader.pages)):
+                        page = reader.pages[page_num]
+                        # Extract text without layout analysis
+                        page_text = page.extract_text(extraction_mode="layout")
+                        if not page_text:
+                            page_text = page.extract_text(extraction_mode="raw")
+                        text += (page_text or "") + "\n\n"
             except Exception as e:
-                print(f"pdftotext extraction failed: {e}")
+                print(f"PyPDF2 alternative extraction failed: {e}")
         
         return self._preprocess_text(text)
     
